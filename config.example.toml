@@ -1,0 +1,4 @@
+[services]
+eclss = { service = "_https._tcp.local."}
+noctis = { service = "_workstation._tcp.local." }
+exocortex = { service = "_rdlink._tcp.local." }
