@@ -1,24 +1,27 @@
+use crate::route::Recognize;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::Path};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Config {
     pub local_tld: String,
-    pub services: HashMap<String, Service>,
     pub dyn_dns: Option<DynDns>,
+    pub services: HashMap<String, Domain>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Domain {
+    #[serde(flatten)]
+    pub recognize: Recognize,
+    pub service: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConfigFile {
     local_tld: Option<String>,
-    services: HashMap<String, Service>,
+    services: HashMap<String, Domain>,
     dyn_dns: Option<DynDns>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Service {
-    pub service: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -46,5 +49,28 @@ impl Config {
             services,
             dyn_dns,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn route() {
+        let toml = r#"
+[services."eclss"]
+service = "_https._tcp.local."
+path_regex = "/eclss/*"
+"#;
+        let ConfigFile { services, .. } = dbg!(toml::from_str(toml)).unwrap();
+        let eclss = services
+            .get("eclss")
+            .expect("config file must have 'eclss' service");
+        assert_eq!(eclss.service.as_deref(), Some("_https._tcp.local."));
+        assert_eq!(
+            eclss.recognize.path_regex.as_ref().map(|r| r.as_str()),
+            Some("/eclss/*")
+        );
     }
 }
