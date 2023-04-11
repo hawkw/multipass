@@ -2,8 +2,9 @@ use anyhow::Context;
 use clap::Parser;
 use std::path::PathBuf;
 
-use multipass::config::Config;
+use multipass::{config::Config, discover::MdnsDiscover, serve};
 use tower::ServiceExt;
+use tracing::Instrument;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -43,13 +44,49 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::load(&args.config)?;
     tracing::debug!(config = format_args!("{config:#?}"));
+    let listeners = config.listeners;
+    tracing::info!(
+        listeners.http = %listeners.http,
+        listeners.https = %listeners.https,
+        listeners.admin = ?config.admin,
+        "Listening...",
+    );
 
-    let discover = multipass::discover::MdnsDiscover::new(&config)?;
-    let mut test = discover.clone().oneshot("noctis.local.".into()).await?;
-    loop {
-        tracing::info!(services = ?test.borrow_and_update());
-        test.changed().await?;
-    }
+    let discover = MdnsDiscover::new(&config).context("failed to start discovery")?;
+
+    let http_server = {
+        let http = serve::bind(listeners.http)
+            .await
+            .context("failed to bind HTTP listener")?;
+        let serve = serve::serve(http, tokio::signal::ctrl_c(), |_conn| async move {
+            todo!("eliza: serve HTTP")
+        })
+        .instrument(tracing::info_span!("serve_http", addr = %listeners.http));
+        tokio::spawn(serve)
+    };
+
+    let test = tokio::spawn({
+        let discover = discover.clone();
+        async move {
+            let mut test = discover
+                .clone()
+                .oneshot("noctis.local.".into())
+                .await
+                .unwrap();
+            loop {
+                tracing::info!(services = ?test.borrow_and_update());
+                tokio::select! {
+                    res = test.changed() => { if res.is_err() { return; } },
+                    _ = tokio::signal::ctrl_c() => { return; },
+                }
+            }
+        }
+    });
+
+    tokio::try_join! {
+        http_server,
+        test,
+    }?;
 
     Ok(())
 }

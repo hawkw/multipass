@@ -5,7 +5,8 @@ use std::{collections::HashMap, net::SocketAddr, path::Path};
 
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub addrs: Addrs,
+    pub listeners: Listeners,
+    pub admin: Option<SocketAddr>,
     pub local_tld: String,
     pub dyn_dns: Option<DynDns>,
     pub services: HashMap<String, Domain>,
@@ -20,19 +21,25 @@ pub struct Domain {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct Addrs {
-    #[serde(default = "Addrs::default_http_listener")]
+pub struct Listeners {
+    #[serde(default = "Listeners::default_http")]
     pub http: SocketAddr,
-    #[serde(default = "Addrs::default_https_listener")]
+    #[serde(default = "Listeners::default_https")]
     pub https: SocketAddr,
-    #[serde(default = "Addrs::default_admin_listener")]
-    pub admin: SocketAddr,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+struct Admin {
+    addr: Option<SocketAddr>,
+    enabled: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConfigFile {
     #[serde(default)]
-    addrs: Addrs,
+    listen: Listeners,
+    #[serde(default)]
+    admin: Admin,
     #[serde(default = "Config::default_local_tld")]
     local_tld: String,
     services: HashMap<String, Domain>,
@@ -46,30 +53,6 @@ pub enum DynDns {
         domain: String,
         subdomains: Vec<String>,
     },
-}
-
-impl Addrs {
-    fn default_http_listener() -> SocketAddr {
-        SocketAddr::from(([0, 0, 0, 0], 80))
-    }
-
-    fn default_https_listener() -> SocketAddr {
-        SocketAddr::from(([0, 0, 0, 0], 443))
-    }
-
-    fn default_admin_listener() -> SocketAddr {
-        SocketAddr::from(([127, 0, 0, 1], 6660))
-    }
-}
-
-impl Default for Addrs {
-    fn default() -> Self {
-        Self {
-            http: Self::default_http_listener(),
-            https: Self::default_https_listener(),
-            admin: Self::default_admin_listener(),
-        }
-    }
 }
 
 // === impl Config ===
@@ -87,14 +70,25 @@ impl Config {
             services,
             local_tld,
             dyn_dns,
-            addrs,
+            listen,
+            admin,
         } = toml::from_str(&file)
             .with_context(|| format!("failed to parse config file '{}'", path.display()))?;
+
+        let admin = if admin.enabled {
+            admin.addr.or(Some(Admin::default_addr()))
+        } else if let Some(addr) = admin.addr {
+            anyhow::bail!("Admin server is disabled, but an address is provided: {addr}")
+        } else {
+            None
+        };
+
         Ok(Self {
             local_tld,
             services,
             dyn_dns,
-            addrs,
+            listeners: listen,
+            admin,
         })
     }
 }
@@ -104,6 +98,44 @@ impl Config {
 impl Domain {
     fn default_ty_domain() -> String {
         String::from("._http._tcp")
+    }
+}
+
+// === impl Listeners ===
+
+impl Listeners {
+    fn default_http() -> SocketAddr {
+        SocketAddr::from(([0, 0, 0, 0], 80))
+    }
+
+    fn default_https() -> SocketAddr {
+        SocketAddr::from(([0, 0, 0, 0], 443))
+    }
+}
+
+impl Default for Listeners {
+    fn default() -> Self {
+        Self {
+            http: Self::default_http(),
+            https: Self::default_https(),
+        }
+    }
+}
+
+// === impl Admin ===
+
+impl Admin {
+    fn default_addr() -> SocketAddr {
+        SocketAddr::from(([127, 0, 0, 1], 6660))
+    }
+}
+
+impl Default for Admin {
+    fn default() -> Self {
+        Self {
+            addr: Some(Self::default_addr()),
+            enabled: true,
+        }
     }
 }
 
@@ -130,26 +162,26 @@ path_regex = "/eclss/*"
     }
 
     #[test]
-    fn addrs() {
+    fn listeners() {
         let toml = r#"
         [services."eclss"]
         service = "_https._tcp.local."
         "#;
-        let ConfigFile { addrs, .. } = dbg!(toml::from_str(toml)).unwrap();
-        assert_eq!(dbg!(addrs), Addrs::default());
+        let ConfigFile { listeners, .. } = dbg!(toml::from_str(toml)).unwrap();
+        assert_eq!(dbg!(listeners), Listeners::default());
 
         let toml = r#"
-        [addrs]
+        [listeners]
         http = "0.0.0.0:8080"
 
         [services."eclss"]
         service = "_https._tcp.local."
         "#;
-        let ConfigFile { addrs, .. } = dbg!(toml::from_str(toml)).unwrap();
+        let ConfigFile { listeners, .. } = dbg!(toml::from_str(toml)).unwrap();
         assert_eq!(
-            dbg!(addrs),
-            Addrs {
-                http: SocketAddr::from(([0, 0, 0, 0], 8080)),
+            dbg!(listeners),
+            Listeners {
+                listeners: SocketAddr::from(([0, 0, 0, 0], 8080)),
                 ..Addrs::default()
             }
         );

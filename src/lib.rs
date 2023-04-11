@@ -1,6 +1,9 @@
 pub mod config;
 pub mod discover;
 pub mod route;
+pub mod serve;
+
+pub use serve::serve;
 
 #[cfg(test)]
 pub(crate) mod test_util {
