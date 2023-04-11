@@ -1,8 +1,6 @@
 use crate::config::{self, Config};
-use anyhow::Context;
-use linkerd_stack as stack;
-// use simple_mdns::{async_discovery::ServiceDiscovery, InstanceInformation};
 use ahash::AHashMap;
+use anyhow::Context;
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
 use std::{sync::Arc, task::Poll};
 use tokio::sync::watch;
@@ -10,71 +8,84 @@ use tracing::Instrument;
 
 #[derive(Clone)]
 pub struct MdnsDiscover {
-    config: Arc<Config>,
-    ty_domains: AHashMap<String, Watch>,
+    domains: Arc<AHashMap<Arc<str>, Receiver>>,
     _daemon: ServiceDaemon,
 }
 
+pub type Receiver = watch::Receiver<Option<ServiceInfo>>;
+
 impl MdnsDiscover {
-    pub fn new(config: Arc<Config>) -> anyhow::Result<Self> {
-        todo!("eliza")
-        // let daemon = ServiceDaemon::new()?;
-        // let ty_domains = config
-        //     .services
-        //     .values()
-        //     .map(|config::Service { service }| service.as_deref().unwrap_or("_.http._tcp"))
-        //     .collect::<ahash::AHashSet<_>>();
-        // let ty_domains = ty_domains
-        //     .into_iter()
-        //     .map(|service_kind| {
-        //         let service_kind = service_kind.to_owned();
-        //         let (tx, rx) = watch::channel(AHashMap::<String, _>::new());
-        //         let browse = daemon
-        //             .browse(&service_kind)
-        //             .with_context(|| format!("Failed to browse for {}", service_kind))?;
-        //         tracing::info!(service_kind, "starting to browse");
-        //         tokio::spawn(
-        //             async move {
-        //                 loop {
-        //                     let event = browse.recv_async().await;
-        //                     tracing::trace!(?event);
-        //                     match event {
-        //                         Err(error) => tracing::error!(%error),
-        //                         Ok(ServiceEvent::ServiceResolved(service)) => {
-        //                             tracing::info!(?service, "service added");
-        //                             tx.send_modify(|services| {
-        //                                 services.insert(service.get_hostname().to_owned(), service);
-        //                             });
-        //                         }
-        //                         Ok(ServiceEvent::ServiceRemoved(kind, service)) => {
-        //                             tracing::info!(service, kind, "service removed");
-        //                             tx.send_modify(|services| {
-        //                                 services.remove(&service);
-        //                             });
-        //                         }
-        //                         Ok(_) => {}
-        //                     }
-        //                 }
-        //             }
-        //             .instrument(tracing::info_span!("browse", service_kind)),
-        //         );
+    pub fn new(config: &Config) -> anyhow::Result<Self> {
+        let daemon = ServiceDaemon::new()?;
+        let mut ty_domains: AHashMap<&str, AHashMap<Arc<str>, _>> = AHashMap::new();
+        let domains = config
+            .services
+            .iter()
+            .map(|(name, config::Domain { ref service, .. })| {
+                let (tx, rx) = tokio::sync::watch::channel(None);
+                let name: Arc<str> = Arc::from(format!("{name}.{}.", config.local_tld));
+                ty_domains
+                    .entry(service)
+                    .or_default()
+                    .insert(name.clone(), tx);
+                (name, rx)
+            })
+            .collect();
 
-        //         Ok((service_kind, rx))
-        //     })
-        //     .collect::<anyhow::Result<AHashMap<String, _>>>()?;
+        for (service_type, mut watches) in ty_domains {
+            let browse = daemon
+                .browse(service_type)
+                .with_context(|| format!("Failed to browse for {service_type}"))?;
+            tokio::spawn(
+                async move {
+                    tracing::info!("Starting to browse...");
+                    loop {
+                        let event = browse.recv_async().await;
+                        tracing::trace!(?event);
+                        match event {
+                            Err(error) => tracing::error!(%error),
+                            Ok(ServiceEvent::ServiceResolved(service)) => {
+                                let name = service.get_hostname();
+                                match watches.get_mut(name) {
+                                    Some(tx) => {
+                                        tracing::info!(?service, "Service '{name}' resolved");
+                                        tx.send_replace(Some(service));
+                                    }
+                                    None => tracing::debug!(
+                                        ?service,
+                                        "Service {name} not in config, ignoring update"
+                                    ),
+                                }
+                            }
+                            Ok(ServiceEvent::ServiceRemoved(kind, name)) => {
+                                match watches.get_mut(name.as_str()) {
+                                    Some(tx) => {
+                                        tracing::info!(kind, "Service '{name}' removed");
+                                        tx.send_replace(None);
+                                    }
+                                    None => tracing::debug!(
+                                        kind,
+                                        "Service {name} not in config, ignoring removal"
+                                    ),
+                                }
+                            }
+                            Ok(_) => {}
+                        }
+                    }
+                }
+                .instrument(tracing::info_span!("browse", message = %service_type)),
+            );
+        }
 
-        // Ok(Self {
-        //     config,
-        //     ty_domains,
-        //     _daemon: daemon,
-        // })
+        Ok(Self {
+            domains: Arc::new(domains),
+            _daemon: daemon,
+        })
     }
 }
 
-pub type Watch = watch::Receiver<AHashMap<String, ServiceInfo>>;
-
 impl tower::Service<String> for MdnsDiscover {
-    type Response = Watch;
+    type Response = Receiver;
     type Error = anyhow::Error;
     type Future = futures::future::Ready<Result<Self::Response, Self::Error>>;
 
@@ -86,23 +97,11 @@ impl tower::Service<String> for MdnsDiscover {
     }
 
     fn call(&mut self, target: String) -> Self::Future {
-        todo!("eliza")
-        // let service_kind: &str = self
-        //     .config
-        //     .services
-        //     .get(&target)
-        //     .and_then(|target| target.service.as_deref())
-        //     .unwrap_or("_http._tcp.local");
-
-        // if let Some(watch) = self.ty_domains.get(service_kind) {
-        //     // TODO(eliza): if the sender has been dropped, restart that
-        //     // discovery task...
-        //     tracing::info!(?target, ?service_kind, "using cached discovery");
-        //     futures::future::ok(watch.clone())
-        // } else {
-        //     futures::future::err(anyhow::anyhow!(
-        //         "cannot discover '{target}': no discovery for service type '{service_kind}'",
-        //     ))
-        // }
+        futures::future::ready(
+            self.domains
+                .get(target.as_str())
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No service configured for {target}")),
+        )
     }
 }

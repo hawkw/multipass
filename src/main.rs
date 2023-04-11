@@ -1,6 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use multipass::config::Config;
 use tower::ServiceExt;
@@ -44,8 +44,8 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load(&args.config)?;
     tracing::debug!(config = format_args!("{config:#?}"));
 
-    let discover = multipass::discover::MdnsDiscover::new(Arc::new(config))?;
-    let mut test = discover.clone().oneshot("exocortex".into()).await?;
+    let discover = multipass::discover::MdnsDiscover::new(&config)?;
+    let mut test = discover.clone().oneshot("noctis.local.".into()).await?;
     loop {
         tracing::info!(services = ?test.borrow_and_update());
         test.changed().await?;
