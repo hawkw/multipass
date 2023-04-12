@@ -1,6 +1,6 @@
 # multipass
 
-![leeloo dallas multipass](assets/multipass.jpg)
+![leeloo dallas multipass](https://github.com/hawkw/multipass/blob/main/docs/assets/leeloo.jpg)
 
 multicast DNS router/gateway proxy
 
