@@ -12,6 +12,7 @@ clap = { version = "4.1.4", features = ["derive", "env"] }
 futures = "0.3.26"
 http = "0.2.9"
 hyper = { version = "1.0.0-rc.3", features = ["full"] }
+hyper-util = { git = "https://github.com/programatik29/hyper-util", branch = "auto-conn", features = ["auto"] }
 tokio = { version = "1.25.0", features = ["net", "rt-multi-thread", "time", "sync", "signal"] }
 tokio-stream = { version = "0.1.12", features = ["net"] }
 tracing = "0.1.37"
@@ -25,3 +26,5 @@ simple-mdns = { version = "0.4.0", features = ["async-tokio"] }
 tower = "0.4.13"
 serde_with = "2.3.2"
 regex = "1.7.3"
+bytes = "1.4.0"
+http-body-util = "0.1.0-rc.2"

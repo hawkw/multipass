@@ -438,6 +438,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-body-util"
+version = "0.1.0-rc.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92445bc9cc14bfa0a3ce56817dc3b5bcc227a168781a356b702410789cec0d10"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "http",
+ "http-body",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "httparse"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -469,6 +482,26 @@ dependencies = [
  "tokio",
  "tracing",
  "want",
+]
+
+[[package]]
+name = "hyper-util"
+version = "0.0.0"
+source = "git+https://github.com/programatik29/hyper-util?branch=auto-conn#5dcd704c07f7892a0ad50e1a5ccbdbb552a5b4c6"
+dependencies = [
+ "bytes",
+ "futures-channel",
+ "futures-util",
+ "http",
+ "http-body",
+ "hyper",
+ "once_cell",
+ "pin-project-lite",
+ "socket2",
+ "tokio",
+ "tower",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -689,10 +722,13 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
+ "bytes",
  "clap",
  "futures",
  "http",
+ "http-body-util",
  "hyper",
+ "hyper-util",
  "linkerd-router",
  "linkerd-stack",
  "mdns-sd",

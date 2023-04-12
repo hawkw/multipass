@@ -2,7 +2,7 @@ use anyhow::Context;
 use clap::Parser;
 use std::path::PathBuf;
 
-use multipass::{config::Config, discover::MdnsDiscover, serve};
+use multipass::{config::Config, discover::MdnsDiscover, serve, svc};
 use tower::ServiceExt;
 use tracing::Instrument;
 
@@ -58,8 +58,15 @@ async fn main() -> anyhow::Result<()> {
         let http = serve::bind(listeners.http)
             .await
             .context("failed to bind HTTP listener")?;
-        let serve = serve::serve(http, tokio::signal::ctrl_c(), |_conn| async move {
-            todo!("eliza: serve HTTP")
+        let serve = serve::serve(http, tokio::signal::ctrl_c(), |_| {
+            svc::service_fn(|req| {
+                tracing::info!(?req);
+                async {
+                    Ok::<_, anyhow::Error>(http::Response::new(http_body_util::Full::new(
+                        bytes::Bytes::from("hello world"),
+                    )))
+                }
+            })
         })
         .instrument(tracing::info_span!("serve_http", addr = %listeners.http));
         tokio::spawn(serve)

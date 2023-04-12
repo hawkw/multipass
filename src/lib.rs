@@ -2,6 +2,7 @@ pub mod config;
 pub mod discover;
 pub mod route;
 pub mod serve;
+pub use linkerd_stack as svc;
 
 pub use serve::serve;
 
