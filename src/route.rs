@@ -1,4 +1,11 @@
+use crate::{config, discover::Name};
 use http::uri;
+use std::sync::Arc;
+
+#[derive(Debug, Clone)]
+pub struct RoutingTable {
+    routes: Arc<[(Recognize, Name)]>,
+}
 
 #[serde_with::serde_as]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -11,6 +18,39 @@ pub struct Recognize {
     #[serde(default)]
     pub path_regex: Option<regex::Regex>,
 }
+
+// === impl RoutingTable ===
+
+impl<B> linkerd_router::SelectRoute<http::Request<B>> for RoutingTable {
+    type Key = Name;
+    type Error = anyhow::Error;
+
+    /// Given a a request, returns the key matching this request.
+    ///
+    /// If no route matches the request, this method returns an error.
+    fn select(&self, req: &http::Request<B>) -> Result<Self::Key, Self::Error> {
+        self.routes
+            .iter()
+            .find_map(|(recognize, name)| recognize.matches(req).then(|| name.clone()))
+            .ok_or_else(|| anyhow::anyhow!("no route for request {}", req.uri()))
+    }
+}
+
+impl RoutingTable {
+    pub fn new(config: &config::Config) -> Self {
+        let routes = config
+            .services
+            .iter()
+            .map(|(name, domain)| {
+                let recognize = domain.recognize.clone();
+                (recognize, name.clone())
+            })
+            .collect();
+        Self { routes }
+    }
+}
+
+// === impl Recognize ===
 
 impl Recognize {
     pub fn matches<B>(&self, req: &http::Request<B>) -> bool {

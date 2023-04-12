@@ -12,7 +12,7 @@ clap = { version = "4.1.4", features = ["derive", "env"] }
 futures = "0.3.26"
 http = "0.2.9"
 hyper = { version = "1.0.0-rc.3", features = ["full"] }
-hyper-util = { git = "https://github.com/programatik29/hyper-util", branch = "auto-conn", features = ["auto"] }
+hyper-util = { git = "https://github.com/programatik29/hyper-util", branch = "auto-conn", features = ["client", "auto"] }
 tokio = { version = "1.25.0", features = ["net", "rt-multi-thread", "time", "sync", "signal"] }
 tokio-stream = { version = "0.1.12", features = ["net"] }
 tracing = "0.1.37"
@@ -20,6 +20,7 @@ tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 toml = "0.7.1"
 linkerd-stack = { git = "https://github.com/linkerd/linkerd2-proxy" }
 linkerd-router = { git = "https://github.com/linkerd/linkerd2-proxy" }
+linkerd-app-core = { git = "https://github.com/linkerd/linkerd2-proxy" }
 serde = {version = "1",features = ["derive"] }
 mdns-sd = "0.5.10"
 simple-mdns = { version = "0.4.0", features = ["async-tokio"] }

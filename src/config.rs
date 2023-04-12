@@ -1,4 +1,4 @@
-use crate::route::Recognize;
+use crate::{discover::Name, route::Recognize};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, net::SocketAddr, path::Path};
@@ -9,7 +9,7 @@ pub struct Config {
     pub admin: Option<SocketAddr>,
     pub local_tld: String,
     pub dyn_dns: Option<DynDns>,
-    pub services: HashMap<String, Domain>,
+    pub services: HashMap<Name, Domain>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -83,6 +83,14 @@ impl Config {
             None
         };
 
+        let services = services
+            .into_iter()
+            .map(|(name, domain)| {
+                let name = Name::from(format!("{name}.{local_tld}."));
+                (name, domain)
+            })
+            .collect();
+
         Ok(Self {
             local_tld,
             services,
@@ -97,7 +105,7 @@ impl Config {
 
 impl Domain {
     fn default_ty_domain() -> String {
-        String::from("._http._tcp")
+        String::from("_http._tcp")
     }
 }
 

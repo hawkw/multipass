@@ -1,7 +1,5 @@
 [listen]
 http = "0.0.0.0:8080"
 
-[services]
-eclss = { service = "_https._tcp.local."}
-noctis = { service = "_workstation._tcp.local." }
-exocortex = { service = "_rdlink._tcp.local." }
+[services.eclss]
+host = "eclss.home.elizas.website"

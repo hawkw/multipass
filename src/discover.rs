@@ -2,39 +2,51 @@ use crate::config::{self, Config};
 use ahash::AHashMap;
 use anyhow::Context;
 use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
-use std::{sync::Arc, task::Poll};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    task::Poll,
+};
 use tokio::sync::watch;
 use tracing::Instrument;
 
+pub type Name = Arc<str>;
+
 #[derive(Clone)]
 pub struct MdnsDiscover {
-    domains: Arc<AHashMap<Arc<str>, Receiver>>,
+    domains: Arc<AHashMap<Name, Receiver>>,
     _daemon: ServiceDaemon,
 }
 
-pub type Receiver = watch::Receiver<Option<ServiceInfo>>;
+#[derive(Clone, Debug, Hash, Eq, PartialEq)]
+pub struct Discovered {
+    pub addr: SocketAddr,
+    pub name: http::uri::Authority,
+}
+
+pub type Receiver = watch::Receiver<Option<Discovered>>;
 
 impl MdnsDiscover {
     pub fn new(config: &Config) -> anyhow::Result<Self> {
         let daemon = ServiceDaemon::new()?;
-        let mut ty_domains: AHashMap<&str, AHashMap<Arc<str>, _>> = AHashMap::new();
+        let mut ty_domains: AHashMap<&str, AHashMap<Name, _>> = AHashMap::new();
         let domains = config
             .services
             .iter()
             .map(|(name, config::Domain { ref service, .. })| {
                 let (tx, rx) = tokio::sync::watch::channel(None);
-                let name: Arc<str> = Arc::from(format!("{name}.{}.", config.local_tld));
                 ty_domains
                     .entry(service)
                     .or_default()
                     .insert(name.clone(), tx);
-                (name, rx)
+                (name.clone(), rx)
             })
             .collect();
 
         for (service_type, mut watches) in ty_domains {
+            let service_type = format!("{service_type}.{}.", config.local_tld);
             let browse = daemon
-                .browse(service_type)
+                .browse(&service_type)
                 .with_context(|| format!("Failed to browse for {service_type}"))?;
             tokio::spawn(
                 async move {
@@ -48,11 +60,11 @@ impl MdnsDiscover {
                                 let name = service.get_hostname();
                                 match watches.get_mut(name) {
                                     Some(tx) => {
-                                        tracing::info!(?service, "Service '{name}' resolved");
-                                        tx.send_replace(Some(service));
+                                        tracing::info!(service = ?format_args!("{service:#?}"), "Service '{name}' resolved");
+                                        tx.send_replace(Discovered::from_service_info(&service, name));
                                     }
                                     None => tracing::debug!(
-                                        ?service,
+                                        service = ?format_args!("{service:#?}"),
                                         "Service {name} not in config, ignoring update"
                                     ),
                                 }
@@ -84,9 +96,9 @@ impl MdnsDiscover {
     }
 }
 
-impl tower::Service<String> for MdnsDiscover {
+impl tower::Service<Name> for MdnsDiscover {
     type Response = Receiver;
-    type Error = anyhow::Error;
+    type Error = linkerd_app_core::Error;
     type Future = futures::future::Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(
@@ -96,12 +108,43 @@ impl tower::Service<String> for MdnsDiscover {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, target: String) -> Self::Future {
+    fn call(&mut self, target: Name) -> Self::Future {
         futures::future::ready(
             self.domains
-                .get(target.as_str())
+                .get(&target)
                 .cloned()
-                .ok_or_else(|| anyhow::anyhow!("No service configured for {target}")),
+                .ok_or_else(|| anyhow::anyhow!("No service configured for {target}").into()),
         )
+    }
+}
+
+// === impl Discovered ===
+
+impl Discovered {
+    fn from_service_info(info: &ServiceInfo, name: &str) -> Option<Self> {
+        // TODO(eliza): construct a load balancer over all addresses?
+        let addr = {
+            let ip = info.get_addresses().iter().next()?;
+            let port = info.get_port();
+            SocketAddr::new(IpAddr::V4(*ip), port)
+        };
+        Some(Self {
+            addr,
+            name: name.parse().unwrap(),
+        })
+    }
+}
+
+impl crate::svc::Param<SocketAddr> for Discovered {
+    fn param(&self) -> SocketAddr {
+        self.addr
+    }
+}
+
+impl crate::svc::Param<linkerd_app_core::proxy::http::normalize_uri::DefaultAuthority>
+    for Discovered
+{
+    fn param(&self) -> linkerd_app_core::proxy::http::normalize_uri::DefaultAuthority {
+        linkerd_app_core::proxy::http::normalize_uri::DefaultAuthority(Some(self.name.clone()))
     }
 }
