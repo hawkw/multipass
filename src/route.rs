@@ -1,4 +1,4 @@
-use crate::{config, discover::Name};
+use crate::discover::Name;
 use http::uri;
 use std::sync::Arc;
 
@@ -36,17 +36,11 @@ impl<B> linkerd_router::SelectRoute<http::Request<B>> for RoutingTable {
     }
 }
 
-impl RoutingTable {
-    pub fn new(config: &config::Config) -> Self {
-        let routes = config
-            .services
-            .iter()
-            .map(|(name, domain)| {
-                let recognize = domain.recognize.clone();
-                (recognize, name.clone())
-            })
-            .collect();
-        Self { routes }
+impl FromIterator<(Recognize, Name)> for RoutingTable {
+    fn from_iter<T: IntoIterator<Item = (Recognize, Name)>>(iter: T) -> Self {
+        Self {
+            routes: iter.into_iter().collect(),
+        }
     }
 }
 

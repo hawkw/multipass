@@ -24,6 +24,14 @@ pub struct Discovered {
     pub name: http::uri::Authority,
 }
 
+#[derive(Debug, Clone, thiserror::Error, Default)]
+#[error("no mDNS service discovered for this domain")]
+pub struct NotResolved(());
+
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("mDNS service '{0}' not in configured domains")]
+pub struct NotConfigured(Name);
+
 pub type Receiver = watch::Receiver<Option<Discovered>>;
 
 impl MdnsDiscover {
@@ -61,7 +69,8 @@ impl MdnsDiscover {
                                 match watches.get_mut(name) {
                                     Some(tx) => {
                                         tracing::info!(service = ?format_args!("{service:#?}"), "Service '{name}' resolved");
-                                        tx.send_replace(Discovered::from_service_info(&service, name));
+                                        let svc = Discovered::from_service_info(&service, name);
+                                        tx.send_replace(svc);
                                     }
                                     None => tracing::debug!(
                                         service = ?format_args!("{service:#?}"),
@@ -98,7 +107,7 @@ impl MdnsDiscover {
 
 impl tower::Service<Name> for MdnsDiscover {
     type Response = Receiver;
-    type Error = linkerd_app_core::Error;
+    type Error = NotConfigured;
     type Future = futures::future::Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(
@@ -108,13 +117,8 @@ impl tower::Service<Name> for MdnsDiscover {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, target: Name) -> Self::Future {
-        futures::future::ready(
-            self.domains
-                .get(&target)
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("No service configured for {target}").into()),
-        )
+    fn call(&mut self, name: Name) -> Self::Future {
+        futures::future::ready(self.domains.get(&name).cloned().ok_or(NotConfigured(name)))
     }
 }
 

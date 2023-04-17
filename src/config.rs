@@ -1,7 +1,11 @@
-use crate::{discover::Name, route::Recognize};
+use crate::{
+    discover::Name,
+    route::{Recognize, RoutingTable},
+    svc,
+};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, net::SocketAddr, path::Path};
+use std::{collections::HashMap, net::SocketAddr, path::Path, sync::Arc, time::Duration};
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -10,12 +14,14 @@ pub struct Config {
     pub local_tld: String,
     pub dyn_dns: Option<DynDns>,
     pub services: HashMap<Name, Domain>,
+    pub routes: RoutingTable,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Domain {
     #[serde(flatten)]
     pub recognize: Recognize,
+
     #[serde(default = "Domain::default_ty_domain")]
     pub service: String,
 }
@@ -24,25 +30,36 @@ pub struct Domain {
 pub struct Listeners {
     #[serde(default = "Listeners::default_http")]
     pub http: SocketAddr,
+
     #[serde(default = "Listeners::default_https")]
     pub https: SocketAddr,
+
+    #[serde(default)]
+    pub queue: QueueConfig,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 struct Admin {
     addr: Option<SocketAddr>,
     enabled: bool,
+
+    #[serde(default)]
+    queue: QueueConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConfigFile {
     #[serde(default)]
     listen: Listeners,
+
     #[serde(default)]
     admin: Admin,
+
     #[serde(default = "Config::default_local_tld")]
     local_tld: String,
+
     services: HashMap<String, Domain>,
+
     dyn_dns: Option<DynDns>,
 }
 
@@ -55,6 +72,15 @@ pub enum DynDns {
     },
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct QueueConfig {
+    #[serde(default = "QueueConfig::default_capacity")]
+    capacity: usize,
+
+    #[serde(default = "QueueConfig::default_timeout")]
+    timeout: Duration,
+}
+
 // === impl Config ===
 
 impl Config {
@@ -62,7 +88,7 @@ impl Config {
         String::from("local")
     }
 
-    pub fn load(path: &impl AsRef<Path>) -> anyhow::Result<Self> {
+    pub fn load(path: &impl AsRef<Path>) -> anyhow::Result<Arc<Self>> {
         let path = path.as_ref();
         let file = std::fs::read_to_string(path)
             .with_context(|| format!("failed to open config file '{}'", path.display()))?;
@@ -83,21 +109,26 @@ impl Config {
             None
         };
 
-        let services = services
+        let services: HashMap<Name, Domain> = services
             .into_iter()
             .map(|(name, domain)| {
                 let name = Name::from(format!("{name}.{local_tld}."));
                 (name, domain)
             })
             .collect();
+        let routes = services
+            .iter()
+            .map(|(name, domain)| (domain.recognize.clone(), name.clone()))
+            .collect();
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             local_tld,
             services,
             dyn_dns,
             listeners: listen,
             admin,
-        })
+            routes,
+        }))
     }
 }
 
@@ -126,6 +157,7 @@ impl Default for Listeners {
         Self {
             http: Self::default_http(),
             https: Self::default_https(),
+            queue: QueueConfig::default(),
         }
     }
 }
@@ -142,8 +174,42 @@ impl Default for Admin {
     fn default() -> Self {
         Self {
             addr: Some(Self::default_addr()),
+            queue: Default::default(),
             enabled: true,
         }
+    }
+}
+
+// === impl QueueConfig ===
+
+impl QueueConfig {
+    const fn default_capacity() -> usize {
+        1000
+    }
+
+    const fn default_timeout() -> Duration {
+        Duration::from_secs(5)
+    }
+}
+
+impl Default for QueueConfig {
+    fn default() -> Self {
+        Self {
+            capacity: Self::default_capacity(),
+            timeout: Self::default_timeout(),
+        }
+    }
+}
+
+impl<T> svc::ExtractParam<svc::queue::Capacity, T> for QueueConfig {
+    fn extract_param(&self, _: &T) -> svc::queue::Capacity {
+        svc::queue::Capacity(self.capacity)
+    }
+}
+
+impl<T> svc::ExtractParam<svc::queue::Timeout, T> for QueueConfig {
+    fn extract_param(&self, _: &T) -> svc::queue::Timeout {
+        svc::queue::Timeout(self.timeout)
     }
 }
 
@@ -175,22 +241,22 @@ path_regex = "/eclss/*"
         [services."eclss"]
         service = "_https._tcp.local."
         "#;
-        let ConfigFile { listeners, .. } = dbg!(toml::from_str(toml)).unwrap();
-        assert_eq!(dbg!(listeners), Listeners::default());
+        let ConfigFile { listen, .. } = dbg!(toml::from_str(toml)).unwrap();
+        assert_eq!(dbg!(listen), Listeners::default());
 
         let toml = r#"
-        [listeners]
+        [listen]
         http = "0.0.0.0:8080"
 
         [services."eclss"]
         service = "_https._tcp.local."
         "#;
-        let ConfigFile { listeners, .. } = dbg!(toml::from_str(toml)).unwrap();
+        let ConfigFile { listen, .. } = dbg!(toml::from_str(toml)).unwrap();
         assert_eq!(
-            dbg!(listeners),
+            dbg!(listen),
             Listeners {
-                listeners: SocketAddr::from(([0, 0, 0, 0], 8080)),
-                ..Addrs::default()
+                http: SocketAddr::from(([0, 0, 0, 0], 8080)),
+                ..Listeners::default()
             }
         );
     }

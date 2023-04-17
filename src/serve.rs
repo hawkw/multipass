@@ -2,7 +2,6 @@ use anyhow::Context;
 use futures::{Stream, StreamExt};
 use hyper::{
     body::{Body, Incoming},
-    service::service_fn,
     Request, Response,
 };
 use hyper_util::{rt::tokio_executor::TokioExecutor, server::conn::auto};

@@ -1,16 +1,13 @@
 use crate::svc;
 use hyper::body::Incoming;
-use hyper_util::{
-    client::legacy::{self, Client},
-    rt::TokioExecutor,
-};
+pub use hyper_util::client::*;
+use hyper_util::rt::TokioExecutor;
+pub use legacy::Client;
 use std::{
-    future::Future,
     net::SocketAddr,
-    pin::Pin,
     task::{Context, Poll},
 };
-use tokio::{io, net::TcpStream};
+use tokio::io;
 
 #[derive(Clone, Debug)]
 pub struct NewClient<C> {
@@ -34,12 +31,7 @@ where
     C: svc::Service<SocketAddr, Response = I> + Clone + Send + 'static,
     C::Future: Send + Unpin,
     C::Error: std::error::Error + Send + Sync,
-    I: io::AsyncRead
-        + io::AsyncWrite
-        + hyper_util::client::connect::Connection
-        + Unpin
-        + Send
-        + 'static,
+    I: io::AsyncRead + io::AsyncWrite + connect::Connection + Unpin + Send + 'static,
     T: svc::Param<SocketAddr>,
 {
     type Service = Client<Connect<C>, Incoming>;
