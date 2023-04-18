@@ -18,9 +18,10 @@ tokio-stream = { version = "0.1.12", features = ["net"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 toml = "0.7.1"
+linkerd-app-core = { git = "https://github.com/linkerd/linkerd2-proxy" }
+linkerd-error-respond = { git = "https://github.com/linkerd/linkerd2-proxy" }
 linkerd-stack = { git = "https://github.com/linkerd/linkerd2-proxy" }
 linkerd-router = { git = "https://github.com/linkerd/linkerd2-proxy" }
-linkerd-app-core = { git = "https://github.com/linkerd/linkerd2-proxy" }
 serde = {version = "1",features = ["derive"] }
 mdns-sd = "0.5.10"
 simple-mdns = { version = "0.4.0", features = ["async-tokio"] }
@@ -30,3 +31,4 @@ regex = "1.7.3"
 bytes = "1.4.0"
 http-body-util = "0.1.0-rc.2"
 thiserror = "1.0.40"
+pin-project = "1.0.12"
