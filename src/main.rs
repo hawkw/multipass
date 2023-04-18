@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         let http = Proxy::new(config.clone(), connect)
             .push_http_endpoint()
             .push_http_discover(&discover)
-            .push_http_router()
+            .push_http_server()
             .into_inner();
         let serve = serve::serve(sock, tokio::signal::ctrl_c(), http)
             .instrument(tracing::info_span!("serve_http", addr = %listeners.http));

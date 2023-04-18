@@ -16,7 +16,7 @@ use tracing::Instrument;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Accepted {
-    client_addr: SocketAddr,
+    pub client_addr: SocketAddr,
 }
 
 pub async fn bind(
