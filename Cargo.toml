@@ -11,6 +11,8 @@ ahash = "0.8.3"
 clap = { version = "4.1.4", features = ["derive", "env"] }
 futures = "0.3.26"
 http = "0.2.9"
+http-body = "1.0.0-rc.2"
+http-body-util = "0.1.0-rc.2"
 hyper = { version = "1.0.0-rc.3", features = ["full"] }
 hyper-util = { git = "https://github.com/programatik29/hyper-util", branch = "auto-conn", features = ["client", "auto"] }
 tokio = { version = "1.25.0", features = ["net", "rt-multi-thread", "time", "sync", "signal"] }
@@ -29,6 +31,5 @@ tower = "0.4.13"
 serde_with = "2.3.2"
 regex = "1.7.3"
 bytes = "1.4.0"
-http-body-util = "0.1.0-rc.2"
 thiserror = "1.0.40"
 pin-project = "1.0.12"

@@ -1,13 +1,11 @@
 use crate::svc;
+use super::box_body::{self, BoxBody};
 use http::header::{HeaderValue, LOCATION};
-use linkerd_app_core::{Error, Result};
+use linkerd_app_core::{Error, Result, proxy::http::ClientHandle};
 use linkerd_error_respond as respond;
 use linkerd_stack::ExtractParam;
-use pin_project::pin_project;
 use std::{
     borrow::Cow,
-    pin::Pin,
-    task::{Context, Poll},
 };
 use tracing::{debug, info_span, warn};
 
@@ -52,26 +50,13 @@ pub struct Respond<R> {
     rescue: R,
     version: http::Version,
     is_grpc: bool,
-    is_orig_proto_upgrade: bool,
-    // client: Option<ClientHandle>,
+    client: Option<ClientHandle>,
     emit_headers: bool,
 }
 
-#[pin_project(project = ResponseBodyProj)]
-pub enum ResponseBody<R, B> {
-    Passthru(#[pin] B),
-    GrpcRescue {
-        #[pin]
-        inner: B,
-        trailers: Option<http::HeaderMap>,
-        rescue: R,
-        emit_headers: bool,
-    },
-}
-
 const GRPC_CONTENT_TYPE: &str = "application/grpc";
-const GRPC_STATUS: &str = "grpc-status";
-const GRPC_MESSAGE: &str = "grpc-message";
+// const GRPC_STATUS: &str = "grpc-status";
+// const GRPC_MESSAGE: &str = "grpc-message";
 
 // === impl HttpRescue ===
 
@@ -86,6 +71,7 @@ where
 
 // === impl SyntheticHttpResponse ===
 
+#[allow(dead_code)]
 impl SyntheticHttpResponse {
     pub fn unexpected_error() -> Self {
         Self::internal_error("unexpected error")
@@ -125,7 +111,7 @@ impl SyntheticHttpResponse {
         Self {
             close_connection: true,
             http_status: http::StatusCode::SERVICE_UNAVAILABLE,
-            grpc_status: tonic::Code::Unavailable,
+            // grpc_status: tonic::Code::Unavailable,
             message: Cow::Owned(msg.to_string()),
             location: None,
         }
@@ -194,57 +180,26 @@ impl SyntheticHttpResponse {
         }
     }
 
-    pub fn grpc(grpc_status: tonic::Code, message: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            grpc_status,
-            http_status: http::StatusCode::OK,
-            location: None,
-            close_connection: false,
-            message: message.into(),
-        }
-    }
+    // pub fn grpc(grpc_status: tonic::Code, message: impl Into<Cow<'static, str>>) -> Self {
+    //     Self {
+    //         grpc_status,
+    //         http_status: http::StatusCode::OK,
+    //         location: None,
+    //         close_connection: false,
+    //         message: message.into(),
+    //     }
+    // }
 
     #[inline]
-    fn message(&self) -> HeaderValue {
-        match self.message {
-            Cow::Borrowed(msg) => HeaderValue::from_static(msg),
-            Cow::Owned(ref msg) => HeaderValue::from_str(msg).unwrap_or_else(|error| {
-                warn!(%error, "Failed to encode error header");
-                HeaderValue::from_static("unexpected error")
-            }),
-        }
-    }
-
-    #[inline]
-    fn grpc_response<B: Default>(&self, emit_headers: bool) -> http::Response<B> {
-        debug!(code = %self.grpc_status, "Handling error on gRPC connection");
-        let mut rsp = http::Response::builder()
-            .version(http::Version::HTTP_2)
-            .header(http::header::CONTENT_LENGTH, "0")
-            .header(http::header::CONTENT_TYPE, GRPC_CONTENT_TYPE)
-            .header(GRPC_STATUS, code_header(self.grpc_status));
-
-        if emit_headers {
-            rsp = rsp.header(GRPC_MESSAGE, self.message());
-            // .header(L5D_PROXY_ERROR, self.message());
-        }
-
-        if self.close_connection && emit_headers {
-            // TODO only set when meshed.
-            // rsp = rsp.header(L5D_PROXY_CONNECTION, "close");
-        }
-
-        rsp.body(B::default())
-            .expect("error response must be valid")
-    }
-
-    #[inline]
-    fn http_response<B: Default>(
+    fn http_response(
         &self,
         version: http::Version,
         emit_headers: bool,
-        is_orig_proto_upgrade: bool,
-    ) -> http::Response<B> {
+    ) -> http::Response<super::BoxBody> {
+        #![allow(clippy::declare_interior_mutable_const)]
+        const SERVER_HEADER: http::HeaderValue = http::HeaderValue::from_static(concat!("multipass/", env!("CARGO_PKG_VERSION")));
+        const CLOSE_HEADER: http::HeaderValue = http::HeaderValue::from_static("close");
+
         debug!(
             status = %self.http_status,
             ?version,
@@ -254,32 +209,22 @@ impl SyntheticHttpResponse {
         let mut rsp = http::Response::builder()
             .status(self.http_status)
             .version(version)
-            .header(http::header::CONTENT_LENGTH, "0");
+            .header(http::header::SERVER, SERVER_HEADER);
 
-        if emit_headers {
-            // rsp = rsp.header(L5D_PROXY_ERROR, self.message());
-        }
-
-        if self.close_connection {
-            if version == http::Version::HTTP_11 && !is_orig_proto_upgrade {
-                // Notify the (proxy or non-proxy) client that the connection will be closed.
-                rsp = rsp.header(http::header::CONNECTION, "close");
-            }
-
-            // Tell the remote outbound proxy that it should close the proxied connection to its
-            // application, i.e. so the application can choose another replica.
-            if emit_headers {
-                // TODO only set when meshed.
-                rsp = rsp.header(L5D_PROXY_CONNECTION, "close");
-            }
+        if self.close_connection && version == http::Version::HTTP_11 {
+            // Notify the (proxy or non-proxy) client that the connection will be closed.
+            rsp = rsp.header(http::header::CONNECTION, CLOSE_HEADER);
         }
 
         if let Some(loc) = &self.location {
             rsp = rsp.header(LOCATION, loc);
         }
 
-        rsp.body(B::default())
-            .expect("error response must be valid")
+        let message = match self.message {
+            Cow::Borrowed(msg) => bytes::Bytes::from_static(msg.as_bytes()),
+            Cow::Owned(ref msg) => bytes::Bytes::copy_from_slice(msg.as_bytes()),
+        };
+        rsp.body(box_body::boxed(http_body_util::Full::new(message))).unwrap()
     }
 }
 
@@ -310,7 +255,7 @@ where
 
     fn new_respond(&self, req: &http::Request<B>) -> Self::Respond {
         let client = req.extensions().get::<ClientHandle>().cloned();
-        debug_assert!(client.is_some(), "Missing client handle");
+        // debug_assert!(client.is_some(), "Missing client handle");
 
         let rescue = self.rescue.clone();
         let emit_headers = self.emit_headers;
@@ -326,19 +271,16 @@ where
                     client,
                     rescue,
                     is_grpc,
-                    is_orig_proto_upgrade: false,
                     version: http::Version::HTTP_2,
                     emit_headers,
                 }
             }
             version => {
-                let is_h2_upgrade = req.extensions().get::<orig_proto::WasUpgrade>().is_some();
                 Respond {
                     client,
                     rescue,
                     version,
                     is_grpc: false,
-                    is_orig_proto_upgrade: is_h2_upgrade,
                     emit_headers,
                 }
             }
@@ -360,31 +302,15 @@ impl<R> Respond<R> {
     }
 }
 
-impl<B, R> respond::Respond<http::Response<B>, Error> for Respond<R>
+impl<R> respond::Respond<http::Response<BoxBody>, Error> for Respond<R>
 where
-    B: Default + hyper::body::HttpBody,
     R: HttpRescue<Error> + Clone,
 {
-    type Response = http::Response<ResponseBody<R, B>>;
+    type Response = http::Response<BoxBody>;
 
-    fn respond(&self, res: Result<http::Response<B>>) -> Result<Self::Response> {
+    fn respond(&self, res: Result<http::Response<BoxBody>>) -> Result<Self::Response> {
         let error = match res {
-            Ok(rsp) => {
-                return Ok(rsp.map(|b| match self {
-                    Respond {
-                        is_grpc: true,
-                        rescue,
-                        emit_headers,
-                        ..
-                    } => ResponseBody::GrpcRescue {
-                        inner: b,
-                        trailers: None,
-                        rescue: rescue.clone(),
-                        emit_headers: *emit_headers,
-                    },
-                    _ => ResponseBody::Passthru(b),
-                }));
-            }
+            Ok(rsp) => return Ok(rsp),
             Err(error) => error,
         };
 
@@ -406,136 +332,8 @@ where
             }
         }
 
-        let rsp = if self.is_grpc {
-            rsp.grpc_response(self.emit_headers)
-        } else {
-            rsp.http_response(self.version, self.emit_headers, self.is_orig_proto_upgrade)
-        };
+        let rsp = rsp.http_response(self.version, self.emit_headers);
 
         Ok(rsp)
-    }
-}
-
-// === impl ResponseBody ===
-
-impl<R, B: Default + hyper::body::HttpBody> Default for ResponseBody<R, B> {
-    fn default() -> Self {
-        ResponseBody::Passthru(B::default())
-    }
-}
-
-impl<R, B> hyper::body::HttpBody for ResponseBody<R, B>
-where
-    B: hyper::body::HttpBody<Error = Error>,
-    R: HttpRescue<B::Error>,
-{
-    type Data = B::Data;
-    type Error = B::Error;
-
-    fn poll_data(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<Self::Data, Self::Error>>> {
-        match self.project() {
-            ResponseBodyProj::Passthru(inner) => inner.poll_data(cx),
-            ResponseBodyProj::GrpcRescue {
-                inner,
-                trailers,
-                rescue,
-                emit_headers,
-            } => {
-                // should not be calling poll_data if we have set trailers derived from an error
-                assert!(trailers.is_none());
-                match inner.poll_data(cx) {
-                    Poll::Ready(Some(Err(error))) => {
-                        let SyntheticHttpResponse {
-                            grpc_status,
-                            message,
-                            ..
-                        } = rescue.rescue(error)?;
-                        let t = Self::grpc_trailers(grpc_status, &*message, *emit_headers);
-                        *trailers = Some(t);
-                        Poll::Ready(None)
-                    }
-                    data => data,
-                }
-            }
-        }
-    }
-
-    #[inline]
-    fn poll_trailers(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<Option<http::HeaderMap>, Self::Error>> {
-        match self.project() {
-            ResponseBodyProj::Passthru(inner) => inner.poll_trailers(cx),
-            ResponseBodyProj::GrpcRescue {
-                inner, trailers, ..
-            } => match trailers.take() {
-                Some(t) => Poll::Ready(Ok(Some(t))),
-                None => inner.poll_trailers(cx),
-            },
-        }
-    }
-
-    #[inline]
-    fn is_end_stream(&self) -> bool {
-        match self {
-            Self::Passthru(inner) => inner.is_end_stream(),
-            Self::GrpcRescue {
-                inner, trailers, ..
-            } => trailers.is_none() && inner.is_end_stream(),
-        }
-    }
-
-    #[inline]
-    fn size_hint(&self) -> http_body::SizeHint {
-        match self {
-            Self::Passthru(inner) => inner.size_hint(),
-            Self::GrpcRescue { inner, .. } => inner.size_hint(),
-        }
-    }
-}
-
-impl<R, B> ResponseBody<R, B> {
-    fn grpc_trailers(code: tonic::Code, message: &str, emit_headers: bool) -> http::HeaderMap {
-        debug!(grpc.status = ?code, "Synthesizing gRPC trailers");
-        let mut t = http::HeaderMap::new();
-        t.insert(GRPC_STATUS, code_header(code));
-        if emit_headers {
-            t.insert(
-                GRPC_MESSAGE,
-                HeaderValue::from_str(message).unwrap_or_else(|error| {
-                    warn!(%error, "Failed to encode error header");
-                    HeaderValue::from_static("Unexpected error")
-                }),
-            );
-        }
-        t
-    }
-}
-
-// Copied from tonic, where it's private.
-fn code_header(code: tonic::Code) -> HeaderValue {
-    use tonic::Code;
-    match code {
-        Code::Ok => HeaderValue::from_static("0"),
-        Code::Cancelled => HeaderValue::from_static("1"),
-        Code::Unknown => HeaderValue::from_static("2"),
-        Code::InvalidArgument => HeaderValue::from_static("3"),
-        Code::DeadlineExceeded => HeaderValue::from_static("4"),
-        Code::NotFound => HeaderValue::from_static("5"),
-        Code::AlreadyExists => HeaderValue::from_static("6"),
-        Code::PermissionDenied => HeaderValue::from_static("7"),
-        Code::ResourceExhausted => HeaderValue::from_static("8"),
-        Code::FailedPrecondition => HeaderValue::from_static("9"),
-        Code::Aborted => HeaderValue::from_static("10"),
-        Code::OutOfRange => HeaderValue::from_static("11"),
-        Code::Unimplemented => HeaderValue::from_static("12"),
-        Code::Internal => HeaderValue::from_static("13"),
-        Code::Unavailable => HeaderValue::from_static("14"),
-        Code::DataLoss => HeaderValue::from_static("15"),
-        Code::Unauthenticated => HeaderValue::from_static("16"),
     }
 }

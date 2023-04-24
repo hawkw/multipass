@@ -1,17 +1,15 @@
 //! A middleware that boxes HTTP response bodies.
 // use crate::EraseResponse;
+use crate::svc;
 use futures::{future, TryFutureExt};
-use http::{HeaderMap, HeaderValue};
-use hyper::body::{Body, Frame, SizeHint};
+use http_body::{Body, Frame};
+use http_body_util::{BodyExt, combinators};
 use linkerd_app_core::Error;
 use linkerd_stack::{layer, Proxy, Service};
 use pin_project::pin_project;
-use std::pin::Pin;
 use std::task::{Context, Poll};
 
-pub struct BoxBody {
-    inner: Pin<Box<dyn Body<Data = Data, Error = Error> + Send + 'static>>,
-}
+pub type BoxBody = combinators::UnsyncBoxBody<Data, Error>;
 
 #[pin_project]
 pub struct Data {
@@ -21,55 +19,6 @@ pub struct Data {
 
 #[derive(Clone, Debug)]
 pub struct BoxResponse<S>(S);
-
-#[pin_project]
-struct Inner<B: Body>(#[pin] B);
-
-struct NoBody;
-
-impl Default for BoxBody {
-    fn default() -> Self {
-        Self {
-            inner: Box::pin(NoBody),
-        }
-    }
-}
-
-impl BoxBody {
-    pub fn new<B>(inner: B) -> Self
-    where
-        B: Body + Send + 'static,
-        B::Data: Send + 'static,
-        B::Error: Into<Error>,
-    {
-        Self {
-            inner: Box::pin(Inner(inner)),
-        }
-    }
-}
-
-impl Body for BoxBody {
-    type Data = Data;
-    type Error = Error;
-
-    #[inline]
-    fn is_end_stream(&self) -> bool {
-        self.inner.is_end_stream()
-    }
-
-    #[inline]
-    fn poll_frame(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        self.as_mut().inner.as_mut().poll_frame(cx)
-    }
-
-    #[inline]
-    fn size_hint(&self) -> SizeHint {
-        self.inner.size_hint()
-    }
-}
 
 impl bytes::Buf for Data {
     fn remaining(&self) -> usize {
@@ -89,74 +38,12 @@ impl bytes::Buf for Data {
     }
 }
 
-impl<B> Body for Inner<B>
-where
-    B: Body,
-    B::Data: Send + 'static,
-    B::Error: Into<Error>,
-{
-    type Data = Data;
-    type Error = Error;
-
-    #[inline]
-    fn is_end_stream(&self) -> bool {
-        self.0.is_end_stream()
-    }
-
-    fn poll_frame(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        let opt = futures::ready!(self.project().0.poll_frame(cx));
-        Poll::Ready(opt.map(|res| {
-            res.map_err(Into::into).map(|buf| Data {
-                inner: Box::new(buf),
-            })
-        }))
-    }
-
-    #[inline]
-    fn size_hint(&self) -> SizeHint {
-        self.0.size_hint()
-    }
-}
-
-impl std::fmt::Debug for BoxBody {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BoxBody").finish()
-    }
-}
-
-impl Body for NoBody {
-    type Data = Data;
-    type Error = Error;
-
-    fn is_end_stream(&self) -> bool {
-        true
-    }
-
-    fn poll_frame(
-        self: Pin<&mut Self>,
-        _: &mut Context<'_>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        Poll::Ready(Ok(None))
-    }
-
-    fn size_hint(&self) -> SizeHint {
-        SizeHint::with_exact(0)
-    }
-}
+// === impl BoxResponse ===
 
 impl<S> BoxResponse<S> {
-    pub fn layer() -> impl layer::Layer<S, Service = Self> + Clone + Copy {
-        layer::mk(Self)
+    pub fn layer() -> impl svc::Layer<S, Service = Self> + Copy {
+        layer::mk(|inner| Self(inner))
     }
-
-    // /// Constructs a boxing layer that erases the inner response type with [`EraseResponse`].
-    // pub fn erased() -> impl layer::Layer<S, Service = EraseResponse<S>> + Clone + Copy {
-    //     EraseResponse::layer()
-    // }
 }
 
 impl<S, Req, B> Service<Req> for BoxResponse<S>
@@ -177,7 +64,7 @@ where
 
     #[inline]
     fn call(&mut self, req: Req) -> Self::Future {
-        self.0.call(req).map_ok(|rsp| rsp.map(BoxBody::new))
+        self.0.call(req).map_ok(|rsp| rsp.map(boxed))
     }
 }
 
@@ -196,6 +83,18 @@ where
 
     #[inline]
     fn proxy(&self, inner: &mut S, req: Req) -> Self::Future {
-        self.0.proxy(inner, req).map_ok(|rsp| rsp.map(BoxBody::new))
+        self.0.proxy(inner, req).map_ok(|rsp| rsp.map(boxed))
     }
+}
+
+pub fn boxed(body: impl Body<Data = impl bytes::Buf + Send + 'static, Error = impl Into<Error> + 'static> + Send + 'static) -> BoxBody {
+    body.map_frame(|frame| {
+        match frame.into_data() {
+            Ok(data) => Frame::data(Data { inner: Box::new(data) }),
+            Err(frame) => match frame.into_trailers() {
+                Ok(trailers) => Frame::trailers(trailers),
+                Err(_) => unreachable!("frame said it was not data, so it must be trailers..."),
+            }
+        }
+    }).map_err(Into::into).boxed_unsync()
 }

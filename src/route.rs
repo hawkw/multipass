@@ -19,11 +19,15 @@ pub struct Recognize {
     pub path_regex: Option<regex::Regex>,
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("no service matches request")]
+pub struct NoService(());
+
 // === impl RoutingTable ===
 
 impl<B> linkerd_router::SelectRoute<http::Request<B>> for RoutingTable {
     type Key = Name;
-    type Error = anyhow::Error;
+    type Error = NoService;
 
     /// Given a a request, returns the key matching this request.
     ///
@@ -32,7 +36,10 @@ impl<B> linkerd_router::SelectRoute<http::Request<B>> for RoutingTable {
         self.routes
             .iter()
             .find_map(|(recognize, name)| recognize.matches(req).then(|| name.clone()))
-            .ok_or_else(|| anyhow::anyhow!("no route for request {}", req.uri()))
+            .ok_or_else(|| {
+                tracing::info!(uri = ?req.uri(), headers = ?req.headers(), "no service for request");
+                NoService(())
+            })
     }
 }
 

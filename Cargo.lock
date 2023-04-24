@@ -1732,6 +1732,7 @@ dependencies = [
  "clap",
  "futures",
  "http",
+ "http-body 1.0.0-rc.2",
  "http-body-util",
  "hyper 1.0.0-rc.3",
  "hyper-util",

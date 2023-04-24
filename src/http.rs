@@ -2,7 +2,7 @@ pub use self::{
     box_body::BoxBody,
     client::{Connect, NewClient},
 };
-use crate::{discover, route::RoutingTable, serve, svc, Proxy};
+use crate::{discover, route::{self, RoutingTable}, serve, svc, Proxy};
 pub use http::*;
 use hyper::body::Incoming;
 use linkerd_app_core::{errors, proxy};
@@ -177,6 +177,7 @@ impl<N> Proxy<N> {
                         .push(box_body::BoxResponse::layer()),
                 )
                 .push(ServerRescue::layer())
+                // .push(proxy::http::SetClientHandle::layer())
                 .instrument(|_: &serve::Accepted| tracing::info_span!("http"))
                 .check_clone()
                 .check_new_service::<serve::Accepted, _>()
@@ -211,8 +212,8 @@ struct ServerRescue;
 impl ServerRescue {
     /// Synthesizes responses for HTTP requests that encounter proxy errors.
     fn layer<N>(
-    ) -> impl svc::layer::Layer<N, Service = errors::NewRespondService<Self, Self, N>> + Clone {
-        errors::respond::layer(Self)
+    ) -> impl svc::layer::Layer<N, Service = error_respond::NewRespondService<Self, Self, N>> + Clone {
+        error_respond::layer(Self)
     }
 }
 
@@ -223,31 +224,37 @@ impl<T> svc::ExtractParam<Self, T> for ServerRescue {
     }
 }
 
-impl<T> svc::ExtractParam<errors::respond::EmitHeaders, T> for ServerRescue {
+impl<T> svc::ExtractParam<error_respond::EmitHeaders, T> for ServerRescue {
     #[inline]
-    fn extract_param(&self, t: &T) -> errors::respond::EmitHeaders {
-        errors::respond::EmitHeaders(true)
+    fn extract_param(&self, _: &T) -> error_respond::EmitHeaders {
+        error_respond::EmitHeaders(true)
     }
 }
 
-impl errors::HttpRescue<linkerd_app_core::Error> for ServerRescue {
+impl error_respond::HttpRescue<linkerd_app_core::Error> for ServerRescue {
     fn rescue(
         &self,
         error: linkerd_app_core::Error,
-    ) -> std::result::Result<errors::SyntheticHttpResponse, linkerd_app_core::Error> {
+    ) -> std::result::Result<error_respond::SyntheticHttpResponse, linkerd_app_core::Error> {
         tracing::info!(error, "synthesizing error response");
         if errors::is_caused_by::<errors::FailFastError>(&*error) {
-            return Ok(errors::SyntheticHttpResponse::gateway_timeout(error));
+            return Ok(error_respond::SyntheticHttpResponse::gateway_timeout(error));
         }
+
         if errors::is_caused_by::<errors::LoadShedError>(&*error) {
-            return Ok(errors::SyntheticHttpResponse::unavailable(error));
+            return Ok(error_respond::SyntheticHttpResponse::unavailable(error));
         }
 
         if errors::is_caused_by::<errors::H2Error>(&*error) {
             return Err(error);
         }
 
+        if errors::is_caused_by::<discover::NotResolved>(&*error) || errors::is_caused_by::<route::NoService>(&*error) {
+            return Ok(error_respond::SyntheticHttpResponse::not_found(error));
+        }
+
+
         tracing::warn!(error, "Unexpected error");
-        Ok(errors::SyntheticHttpResponse::unexpected_error())
+        Ok(error_respond::SyntheticHttpResponse::unexpected_error())
     }
 }
