@@ -1,12 +1,18 @@
-use crate::{discover, route::RoutingTable, serve, svc, Proxy};
-mod client;
-mod header_from_target;
-pub use self::client::{Connect, NewClient};
+pub use self::{
+    box_body::BoxBody,
+    client::{Connect, NewClient},
+};
+use crate::{discover, route::{self, RoutingTable}, serve, svc, Proxy};
 pub use http::*;
-
 use hyper::body::Incoming;
+use linkerd_app_core::{errors, proxy};
 use std::{net::SocketAddr, ops::Deref};
 use tokio::io;
+
+mod box_body;
+mod client;
+mod error_respond;
+mod header_from_target;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Route<T> {
@@ -123,7 +129,7 @@ impl<N> Proxy<N> {
                 serve::Accepted,
                 Service = impl svc::Service<
                     http::Request<Incoming>,
-                    Response = http::Response<Incoming>,
+                    Response = http::Response<BoxBody>,
                     Error = linkerd_app_core::Error,
                     Future = impl std::future::Future + Send,
                 > + Clone
@@ -164,6 +170,14 @@ impl<N> Proxy<N> {
                         move |_: &serve::Accepted| routes.clone()
                     }),
                 )
+                .push_on_service(
+                    svc::layers()
+                        // Record when an HTTP/1 URI was in absolute form
+                        .push(proxy::http::normalize_uri::MarkAbsoluteForm::layer())
+                        .push(box_body::BoxResponse::layer()),
+                )
+                .push(ServerRescue::layer())
+                // .push(proxy::http::SetClientHandle::layer())
                 .instrument(|_: &serve::Accepted| tracing::info_span!("http"))
                 .check_clone()
                 .check_new_service::<serve::Accepted, _>()
@@ -189,5 +203,58 @@ impl<T> Deref for Route<T> {
 impl<T> From<(discover::Name, T)> for Route<T> {
     fn from((name, parent): (discover::Name, T)) -> Self {
         Self { name, parent }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct ServerRescue;
+
+impl ServerRescue {
+    /// Synthesizes responses for HTTP requests that encounter proxy errors.
+    fn layer<N>(
+    ) -> impl svc::layer::Layer<N, Service = error_respond::NewRespondService<Self, Self, N>> + Clone {
+        error_respond::layer(Self)
+    }
+}
+
+impl<T> svc::ExtractParam<Self, T> for ServerRescue {
+    #[inline]
+    fn extract_param(&self, _: &T) -> Self {
+        *self
+    }
+}
+
+impl<T> svc::ExtractParam<error_respond::EmitHeaders, T> for ServerRescue {
+    #[inline]
+    fn extract_param(&self, _: &T) -> error_respond::EmitHeaders {
+        error_respond::EmitHeaders(true)
+    }
+}
+
+impl error_respond::HttpRescue<linkerd_app_core::Error> for ServerRescue {
+    fn rescue(
+        &self,
+        error: linkerd_app_core::Error,
+    ) -> std::result::Result<error_respond::SyntheticHttpResponse, linkerd_app_core::Error> {
+        tracing::info!(error, "synthesizing error response");
+        if errors::is_caused_by::<errors::FailFastError>(&*error) {
+            return Ok(error_respond::SyntheticHttpResponse::gateway_timeout(error));
+        }
+
+        if errors::is_caused_by::<errors::LoadShedError>(&*error) {
+            return Ok(error_respond::SyntheticHttpResponse::unavailable(error));
+        }
+
+        if errors::is_caused_by::<errors::H2Error>(&*error) {
+            return Err(error);
+        }
+
+        if errors::is_caused_by::<discover::NotResolved>(&*error) || errors::is_caused_by::<route::NoService>(&*error) {
+            return Ok(error_respond::SyntheticHttpResponse::not_found(error));
+        }
+
+
+        tracing::warn!(error, "Unexpected error");
+        Ok(error_respond::SyntheticHttpResponse::unexpected_error())
     }
 }
