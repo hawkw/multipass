@@ -33,7 +33,7 @@ env:
   rust-toolchain: nightly
 
 jobs:
-  test
+  test:
     name: cargo test
     runs-on: ubuntu-latest
     steps:
@@ -46,7 +46,7 @@ jobs:
       - name: cargo build
         run: cargo build --all-features --tests --message-format=json | cargo-action-fmt
       - run: cargo nextest run
-  
+
   clippy:
     name: cargo clippy
     runs-on: ubuntu-latest
