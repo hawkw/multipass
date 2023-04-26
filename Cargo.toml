@@ -18,7 +18,7 @@ hyper-util = { git = "https://github.com/programatik29/hyper-util", branch = "au
 tokio = { version = "1.25.0", features = ["net", "rt-multi-thread", "time", "sync", "signal"] }
 tokio-stream = { version = "0.1.12", features = ["net"] }
 tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 toml = "0.7.1"
 linkerd-app-core = { git = "https://github.com/linkerd/linkerd2-proxy" }
 linkerd-error-respond = { git = "https://github.com/linkerd/linkerd2-proxy" }
