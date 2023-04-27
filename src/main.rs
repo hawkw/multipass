@@ -28,7 +28,7 @@ impl Args {
         let filter = self.log.parse::<tracing_subscriber::EnvFilter>()?;
         tracing_subscriber::fmt()
             .with_env_filter(filter)
-            // .pretty()
+            .with_thread_ids(true)
             .init();
 
         Ok(())
