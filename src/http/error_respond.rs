@@ -50,9 +50,17 @@ pub struct Respond<R> {
     version: http::Version,
     is_grpc: bool,
     client: Option<ClientHandle>,
+    accept: ContentType,
 }
 
-const GRPC_CONTENT_TYPE: &str = "application/grpc";
+#[derive(Copy, Clone, Debug)]
+enum ContentType {
+    Html,
+    Plaintext,
+    Json,
+    Grpc,
+}
+
 // const GRPC_STATUS: &str = "grpc-status";
 // const GRPC_MESSAGE: &str = "grpc-message";
 
@@ -192,15 +200,19 @@ impl SyntheticHttpResponse {
     fn http_response(
         &self,
         version: http::Version,
+        content_type: ContentType,
     ) -> http::Response<super::BoxBody> {
         #![allow(clippy::declare_interior_mutable_const)]
-        const SERVER_HEADER: http::HeaderValue = http::HeaderValue::from_static(concat!("multipass/", env!("CARGO_PKG_VERSION")));
+
+        const VERSION: &str = concat!("multipass/", env!("CARGO_PKG_VERSION"));
+        const SERVER_HEADER: http::HeaderValue = http::HeaderValue::from_static(VERSION);
         const CLOSE_HEADER: http::HeaderValue = http::HeaderValue::from_static("close");
 
         debug!(
             status = %self.http_status,
             ?version,
             close = %self.close_connection,
+            ?content_type,
             "Handling error on HTTP connection"
         );
         let mut rsp = http::Response::builder()
@@ -217,9 +229,42 @@ impl SyntheticHttpResponse {
             rsp = rsp.header(LOCATION, loc);
         }
 
-        let message = match self.message {
-            Cow::Borrowed(msg) => bytes::Bytes::from_static(msg.as_bytes()),
-            Cow::Owned(ref msg) => bytes::Bytes::copy_from_slice(msg.as_bytes()),
+        let message = match content_type {
+            ContentType::Plaintext => {
+                rsp = rsp.header(http::header::CONTENT_TYPE, ContentType::PLAINTEXT);
+                match self.message {
+                    Cow::Borrowed(msg) => bytes::Bytes::from_static(msg.as_bytes()),
+                    Cow::Owned(ref msg) => bytes::Bytes::copy_from_slice(msg.as_bytes()),
+                }
+            },
+            ContentType::Html => {
+                rsp = rsp.header(http::header::CONTENT_TYPE, ContentType::HTML);
+                bytes::Bytes::from(format!(
+"<!DOCTYLE html>
+<html>
+    <head>
+        <meta charset=\"utf-8\">
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+        <title>{status}</title>
+    </head>
+    <body>
+        <h1>{status}</h1>
+        <p>{message}</p>
+        <p><em>{VERSION}</em></p>
+    </body>
+</html>",
+                    status = self.http_status, message = self.message,
+                ))
+            },
+            ContentType::Json => {
+                rsp = rsp.header(http::header::CONTENT_TYPE, ContentType::JSON);
+                bytes::Bytes::from(format!(
+                    "{{\"status\":{}, \"message\": \"{}\"}}",
+                    self.http_status.as_u16(),
+                    self.message,
+                ))
+            },
+            _ => unimplemented!("handle gRPC responses"),
         };
         rsp.body(box_body::boxed(http_body_util::Full::new(message))).unwrap()
     }
@@ -252,18 +297,27 @@ where
         // debug_assert!(client.is_some(), "Missing client handle");
 
         let rescue = self.rescue.clone();
+        let accept = req.headers().get(http::header::ACCEPT).and_then(|accept| accept.to_str().map(Some).unwrap_or_else(|error| { tracing::warn!(%error, "accept header should be UTF-8"); None }));
+        let accept = match accept {
+            Some(s) if s.contains(ContentType::JSON) => ContentType::Json,
+            Some(s) if s.contains(ContentType::GRPC) => ContentType::Grpc,
+            Some(s) if s.contains(ContentType::HTML) => ContentType::Html,
+            Some(s) if s.contains(ContentType::PLAINTEXT) => ContentType::Plaintext,
+            _ => ContentType::Html,
+        };
         match req.version() {
             http::Version::HTTP_2 => {
                 let is_grpc = req
                     .headers()
                     .get(http::header::CONTENT_TYPE)
-                    .and_then(|v| v.to_str().ok().map(|s| s.starts_with(GRPC_CONTENT_TYPE)))
+                    .and_then(|v| v.to_str().ok().map(|s| s.starts_with(ContentType::GRPC)))
                     .unwrap_or(false);
                 Respond {
                     client,
                     rescue,
                     is_grpc,
                     version: http::Version::HTTP_2,
+                    accept,
                 }
             }
             version => {
@@ -272,6 +326,7 @@ where
                     rescue,
                     version,
                     is_grpc: false,
+                    accept,
                 }
             }
         }
@@ -322,8 +377,17 @@ where
             }
         }
 
-        let rsp = rsp.http_response(self.version);
+        let rsp = rsp.http_response(self.version, self.accept);
 
         Ok(rsp)
     }
+}
+
+// === impl ContentType ===
+
+impl ContentType {
+    const HTML: &'static str = "text/html";
+    const PLAINTEXT: &'static str = "text/plain";
+    const JSON: &'static str = "application/json";
+    const GRPC: &'static str = "application/grpc";
 }
