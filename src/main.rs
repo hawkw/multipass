@@ -45,6 +45,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::load(&args.config)?;
     tracing::debug!(config = format_args!("{config:#?}"));
+
     let listeners = config.listeners;
     tracing::info!(
         listeners.http = %listeners.http,

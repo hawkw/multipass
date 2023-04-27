@@ -68,25 +68,27 @@ impl MdnsDiscover {
                                 let name = service.get_hostname();
                                 match watches.get_mut(name) {
                                     Some(tx) => {
-                                        tracing::info!(service = ?format_args!("{service:#?}"), "Service '{name}' resolved");
+                                        tracing::info!(service = name, info = ?format_args!("{service:#?}"), "Service resolved");
                                         let svc = Discovered::from_service_info(&service, name);
                                         tx.send_replace(svc);
                                     }
                                     None => tracing::debug!(
-                                        service = ?format_args!("{service:#?}"),
-                                        "Service {name} not in config, ignoring update"
+                                        service = name,
+                                        info = ?format_args!("{service:#?}"),
+                                        "Service not in config, ignoring update"
                                     ),
                                 }
                             }
                             Ok(ServiceEvent::ServiceRemoved(kind, name)) => {
                                 match watches.get_mut(name.as_str()) {
                                     Some(tx) => {
-                                        tracing::info!(kind, "Service '{name}' removed");
+                                        tracing::info!(service = name, kind, "Service removed");
                                         tx.send_replace(None);
                                     }
                                     None => tracing::debug!(
+                                        service = name,
                                         kind,
-                                        "Service {name} not in config, ignoring removal"
+                                        "Service not in config, ignoring removal"
                                     ),
                                 }
                             }
