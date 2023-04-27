@@ -1,5 +1,7 @@
+domain = "home.elizas.website"
+
 [listen]
 http = "0.0.0.0:8080"
 
-[services.eclss]
-host = "eclss.home.elizas.website"
+[services]
+eclss = {}

@@ -54,6 +54,10 @@ impl FromIterator<(Recognize, Name)> for RoutingTable {
 // === impl Recognize ===
 
 impl Recognize {
+    pub fn is_empty(&self) -> bool {
+        self.path_regex.is_none() && self.host.is_none()
+    }
+
     pub fn matches<B>(&self, req: &http::Request<B>) -> bool {
         if let Some(ref authority) = self.host {
             let host = authority.host();

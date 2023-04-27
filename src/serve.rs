@@ -17,6 +17,7 @@ use tracing::Instrument;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Accepted {
     pub client_addr: SocketAddr,
+    pub listen_addr: SocketAddr,
 }
 
 pub async fn bind(
@@ -33,6 +34,7 @@ pub async fn bind(
 }
 
 pub async fn serve<I, S, B>(
+    listen_addr: SocketAddr,
     listen: impl Stream<Item = io::Result<(I, SocketAddr)>>,
     shutdown: impl Future + Send,
     new_svc: impl svc::NewService<Accepted, Service = S> + Clone + Send + 'static,
@@ -67,6 +69,7 @@ pub async fn serve<I, S, B>(
             let svc = NewHyperService {
                 new_svc: new_svc.clone(),
                 client_addr: addr,
+                listen_addr
             };
             tokio::spawn(
                 async move {
@@ -93,6 +96,7 @@ pub async fn serve<I, S, B>(
 struct NewHyperService<N> {
     new_svc: N,
     client_addr: SocketAddr,
+    listen_addr: SocketAddr,
 }
 
 impl<N, S, B, R> hyper::service::Service<R> for NewHyperService<N>
@@ -114,6 +118,7 @@ where
         self.new_svc
             .new_service(Accepted {
                 client_addr: self.client_addr,
+                listen_addr: self.listen_addr,
             })
             .oneshot(req)
     }

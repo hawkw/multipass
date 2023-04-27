@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
             .push_http_discover(&discover)
             .push_http_server()
             .into_inner();
-        let serve = serve::serve(sock, tokio::signal::ctrl_c(), http)
+        let serve = serve::serve(listeners.http, sock, tokio::signal::ctrl_c(), http)
             .instrument(tracing::info_span!("serve_http", addr = %listeners.http));
         tokio::spawn(serve)
     };

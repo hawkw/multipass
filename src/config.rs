@@ -9,6 +9,7 @@ use std::{collections::HashMap, net::SocketAddr, path::Path, sync::Arc, time::Du
 
 #[derive(Clone, Debug)]
 pub struct Config {
+    pub domain: Name,
     pub listeners: Listeners,
     pub admin: Option<SocketAddr>,
     pub local_tld: String,
@@ -47,8 +48,12 @@ struct Admin {
     queue: QueueConfig,
 }
 
+#[serde_with::serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ConfigFile {
+    #[serde_as(as = "serde_with::DisplayFromStr")]
+    domain: http::uri::Authority,
+
     #[serde(default)]
     listen: Listeners,
 
@@ -93,6 +98,7 @@ impl Config {
         let file = std::fs::read_to_string(path)
             .with_context(|| format!("failed to open config file '{}'", path.display()))?;
         let ConfigFile {
+            domain,
             services,
             local_tld,
             dyn_dns,
@@ -100,6 +106,8 @@ impl Config {
             admin,
         } = toml::from_str(&file)
             .with_context(|| format!("failed to parse config file '{}'", path.display()))?;
+
+        let domain = Name::from(domain.as_str());
 
         let admin = if admin.enabled {
             admin.addr.or(Some(Admin::default_addr()))
@@ -118,10 +126,18 @@ impl Config {
             .collect();
         let routes = services
             .iter()
-            .map(|(name, domain)| (domain.recognize.clone(), name.clone()))
+            .map(|(name, d)| {
+                let mut recognize = d.recognize.clone();
+                if recognize.is_empty() {
+                    let subdomain = name.trim_end_matches('.').trim_end_matches(&local_tld);
+                    recognize.host = Some(format!("{subdomain}{domain}").parse().unwrap());
+                }
+                (recognize, name.clone())
+            })
             .collect();
 
         Ok(Arc::new(Self {
+            domain,
             local_tld,
             services,
             dyn_dns,
