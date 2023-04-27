@@ -1,6 +1,7 @@
 pub use self::{
     box_body::BoxBody,
     client::{Connect, NewClient},
+    header_from_target::NewHeaderFromTarget,
 };
 use crate::{discover, route::{self, RoutingTable}, serve, svc, Proxy};
 pub use http::*;
@@ -149,17 +150,17 @@ impl<N> Proxy<N> {
         S::Response: Send,
     {
         self.map_stack(|discover, cfg| {
+            let hostname = cfg.domain.clone();
             discover
-                .push(header_from_target::NewHeaderFromTarget::layer_via(
+                .push(NewHeaderFromTarget::layer_via(
+                    header_from_target::Which { request: true, response: false },
                     |route: &Route<serve::Accepted>| {
                         let client_addr = route.parent.client_addr;
-
-                        (
-                            http::header::FORWARDED,
-                            format!("for={client_addr};host={}", route.name)
-                                .parse::<http::HeaderValue>()
-                                .unwrap(),
-                        )
+                        let listen_addr = route.parent.listen_addr;
+                        let forwarded = format!("by={listen_addr};for={client_addr};host={}", route.name)
+                            .parse::<http::HeaderValue>()
+                            .unwrap();
+                        (http::header::FORWARDED, forwarded)
                     },
                 ))
                 .lift_new_with_target()
@@ -175,6 +176,14 @@ impl<N> Proxy<N> {
                         // Record when an HTTP/1 URI was in absolute form
                         .push(proxy::http::normalize_uri::MarkAbsoluteForm::layer())
                         .push(box_body::BoxResponse::layer()),
+                )
+                .push(NewHeaderFromTarget::layer_via(
+                    header_from_target::Which { request: true, response: true },
+                    move |t: &serve::Accepted| {
+                        let via = format!("HTTP/1.1 {hostname}:{}", t.listen_addr.port())
+                            .parse::<http::HeaderValue>().unwrap();
+                        (http::header::VIA, via)
+                    })
                 )
                 .push(ServerRescue::layer())
                 // .push(proxy::http::SetClientHandle::layer())
