@@ -240,20 +240,10 @@ impl SyntheticHttpResponse {
             ContentType::Html => {
                 rsp = rsp.header(http::header::CONTENT_TYPE, ContentType::HTML);
                 bytes::Bytes::from(format!(
-"<!DOCTYLE html>
-<html>
-    <head>
-        <meta charset=\"utf-8\">
-        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-        <title>{status}</title>
-    </head>
-    <body>
-        <h1>{status}</h1>
-        <p>{message}</p>
-        <p><em>{VERSION}</em></p>
-    </body>
-</html>",
-                    status = self.http_status, message = self.message,
+                    include_str!("../html/error.html"),
+                    status = self.http_status,
+                    message = self.message,
+                    version = VERSION,
                 ))
             },
             ContentType::Json => {

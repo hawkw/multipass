@@ -20,7 +20,7 @@ pub struct Recognize {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("no service matches request")]
+#[error("No service configured for this request.")]
 pub struct NoService(());
 
 // === impl RoutingTable ===
