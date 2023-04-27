@@ -32,11 +32,11 @@ impl<H, X: Clone, N> NewHeaderFromTarget<H, X, N> {
     }
 }
 
-impl<H, N> NewHeaderFromTarget<H, (), N> {
-    pub fn layer() -> impl layer::Layer<N, Service = Self> + Clone {
-        Self::layer_via(())
-    }
-}
+// impl<H, N> NewHeaderFromTarget<H, (), N> {
+//     pub fn layer() -> impl layer::Layer<N, Service = Self> + Clone {
+//         Self::layer_via(())
+//     }
+// }
 
 impl<H, T, X, N> NewService<T> for NewHeaderFromTarget<H, X, N>
 where

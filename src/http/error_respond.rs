@@ -7,7 +7,7 @@ use linkerd_stack::ExtractParam;
 use std::{
     borrow::Cow,
 };
-use tracing::{debug, info_span, warn};
+use tracing::{debug, info_span};
 
 pub fn layer<R, P: Clone, N>(
     params: P,
@@ -42,7 +42,6 @@ pub struct ExtractRespond<P>(P);
 #[derive(Copy, Clone, Debug)]
 pub struct NewRespond<R> {
     rescue: R,
-    emit_headers: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -51,7 +50,6 @@ pub struct Respond<R> {
     version: http::Version,
     is_grpc: bool,
     client: Option<ClientHandle>,
-    emit_headers: bool,
 }
 
 const GRPC_CONTENT_TYPE: &str = "application/grpc";
@@ -194,7 +192,6 @@ impl SyntheticHttpResponse {
     fn http_response(
         &self,
         version: http::Version,
-        emit_headers: bool,
     ) -> http::Response<super::BoxBody> {
         #![allow(clippy::declare_interior_mutable_const)]
         const SERVER_HEADER: http::HeaderValue = http::HeaderValue::from_static(concat!("multipass/", env!("CARGO_PKG_VERSION")));
@@ -233,14 +230,11 @@ impl SyntheticHttpResponse {
 impl<T, R, P> ExtractParam<NewRespond<R>, T> for ExtractRespond<P>
 where
     P: ExtractParam<R, T>,
-    P: ExtractParam<EmitHeaders, T>,
 {
     #[inline]
     fn extract_param(&self, t: &T) -> NewRespond<R> {
-        let EmitHeaders(emit_headers) = self.0.extract_param(t);
         NewRespond {
             rescue: self.0.extract_param(t),
-            emit_headers,
         }
     }
 }
@@ -258,8 +252,6 @@ where
         // debug_assert!(client.is_some(), "Missing client handle");
 
         let rescue = self.rescue.clone();
-        let emit_headers = self.emit_headers;
-
         match req.version() {
             http::Version::HTTP_2 => {
                 let is_grpc = req
@@ -272,7 +264,6 @@ where
                     rescue,
                     is_grpc,
                     version: http::Version::HTTP_2,
-                    emit_headers,
                 }
             }
             version => {
@@ -281,7 +272,6 @@ where
                     rescue,
                     version,
                     is_grpc: false,
-                    emit_headers,
                 }
             }
         }
@@ -332,7 +322,7 @@ where
             }
         }
 
-        let rsp = rsp.http_response(self.version, self.emit_headers);
+        let rsp = rsp.http_response(self.version);
 
         Ok(rsp)
     }
