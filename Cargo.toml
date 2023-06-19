@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.68"
 ahash = "0.8.3"
-clap = { version = "4.1.4", features = ["derive", "env"] }
+clap = { version = "4.3.4", features = ["derive", "env"] }
 futures = "0.3.28"
 http = "0.2.9"
 http-body = "1.0.0-rc.2"
