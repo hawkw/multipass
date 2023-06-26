@@ -672,7 +672,7 @@ dependencies = [
 [[package]]
 name = "hyper-balance"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "http",
@@ -888,7 +888,7 @@ checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 [[package]]
 name = "linkerd-addr"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "http",
  "ipnet",
@@ -899,7 +899,7 @@ dependencies = [
 [[package]]
 name = "linkerd-app-core"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "bytes",
  "drain",
@@ -950,6 +950,7 @@ dependencies = [
  "parking_lot",
  "pin-project",
  "regex",
+ "semver 1.0.17",
  "serde_json",
  "thiserror",
  "tokio",
@@ -962,12 +963,12 @@ dependencies = [
 [[package]]
 name = "linkerd-conditional"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 
 [[package]]
 name = "linkerd-detect"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -983,7 +984,7 @@ dependencies = [
 [[package]]
 name = "linkerd-dns"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-dns-name",
@@ -997,7 +998,7 @@ dependencies = [
 [[package]]
 name = "linkerd-dns-name"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "thiserror",
  "untrusted",
@@ -1006,7 +1007,7 @@ dependencies = [
 [[package]]
 name = "linkerd-duplex"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "bytes",
  "futures",
@@ -1019,12 +1020,12 @@ dependencies = [
 [[package]]
 name = "linkerd-errno"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 
 [[package]]
 name = "linkerd-error"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
 ]
@@ -1032,7 +1033,7 @@ dependencies = [
 [[package]]
 name = "linkerd-error-respond"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1043,7 +1044,7 @@ dependencies = [
 [[package]]
 name = "linkerd-exp-backoff"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "pin-project",
@@ -1055,7 +1056,7 @@ dependencies = [
 [[package]]
 name = "linkerd-http-box"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "bytes",
  "futures",
@@ -1069,7 +1070,7 @@ dependencies = [
 [[package]]
 name = "linkerd-http-classify"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "http",
  "linkerd-error",
@@ -1078,7 +1079,7 @@ dependencies = [
 [[package]]
 name = "linkerd-http-metrics"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "bytes",
  "futures",
@@ -1099,7 +1100,7 @@ dependencies = [
 [[package]]
 name = "linkerd-http-route"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "http",
  "rand",
@@ -1112,7 +1113,7 @@ dependencies = [
 [[package]]
 name = "linkerd-identity"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "linkerd-dns-name",
  "linkerd-error",
@@ -1121,7 +1122,7 @@ dependencies = [
 [[package]]
 name = "linkerd-idle-cache"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1135,7 +1136,7 @@ dependencies = [
 [[package]]
 name = "linkerd-io"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1149,7 +1150,7 @@ dependencies = [
 [[package]]
 name = "linkerd-meshtls"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1163,7 +1164,7 @@ dependencies = [
 [[package]]
 name = "linkerd-metrics"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "deflate",
  "http",
@@ -1177,7 +1178,7 @@ dependencies = [
 [[package]]
 name = "linkerd-opencensus"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "http",
@@ -1194,7 +1195,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-api-resolve"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "async-stream",
  "futures",
@@ -1216,7 +1217,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-balance"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "futures-util",
@@ -1237,7 +1238,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-client-policy"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "ahash",
  "http",
@@ -1254,7 +1255,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-core"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1264,7 +1265,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-dns-resolve"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-addr",
@@ -1281,7 +1282,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-http"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1314,7 +1315,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-identity-client"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "http-body 0.4.5",
@@ -1334,7 +1335,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-resolve"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1348,7 +1349,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-server-policy"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "http",
  "ipnet",
@@ -1359,7 +1360,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-tap"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "http",
@@ -1387,7 +1388,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-tcp"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-duplex",
@@ -1403,7 +1404,7 @@ dependencies = [
 [[package]]
 name = "linkerd-proxy-transport"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "libc",
@@ -1420,7 +1421,7 @@ dependencies = [
 [[package]]
 name = "linkerd-reconnect"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1433,7 +1434,7 @@ dependencies = [
 [[package]]
 name = "linkerd-router"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "ahash",
  "futures",
@@ -1447,7 +1448,7 @@ dependencies = [
 [[package]]
 name = "linkerd-service-profiles"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "bytes",
  "futures",
@@ -1475,7 +1476,7 @@ dependencies = [
 [[package]]
 name = "linkerd-stack"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1491,7 +1492,7 @@ dependencies = [
 [[package]]
 name = "linkerd-stack-metrics"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "linkerd-metrics",
  "parking_lot",
@@ -1502,7 +1503,7 @@ dependencies = [
 [[package]]
 name = "linkerd-stack-tracing"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1514,7 +1515,7 @@ dependencies = [
 [[package]]
 name = "linkerd-system"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "libc",
  "procinfo",
@@ -1524,7 +1525,7 @@ dependencies = [
 [[package]]
 name = "linkerd-tls"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1546,7 +1547,7 @@ dependencies = [
 [[package]]
 name = "linkerd-tonic-watch"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-error",
@@ -1559,7 +1560,7 @@ dependencies = [
 [[package]]
 name = "linkerd-trace-context"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "base64",
  "bytes",
@@ -1577,7 +1578,7 @@ dependencies = [
 [[package]]
 name = "linkerd-tracing"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "linkerd-error",
  "tokio",
@@ -1589,7 +1590,7 @@ dependencies = [
 [[package]]
 name = "linkerd-transport-header"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "arbitrary",
  "async-trait",
@@ -1608,7 +1609,7 @@ dependencies = [
 [[package]]
 name = "linkerd-transport-metrics"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "futures",
  "linkerd-errno",
@@ -1623,9 +1624,9 @@ dependencies = [
 
 [[package]]
 name = "linkerd2-proxy-api"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c5191a6b6a0d97519b4746c09a5e92cb9f586cb808d1828f6d7f9889e9ba24d"
+checksum = "597facef5c3f12aece4d18a5e3dbba88288837b0b5d8276681d063e4c9b98a14"
 dependencies = [
  "h2",
  "http",
@@ -1827,7 +1828,7 @@ checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
 [[package]]
 name = "opencensus-proto"
 version = "0.1.0"
-source = "git+https://github.com/linkerd/linkerd2-proxy#89f237be86163f36fdfda87fe3d1ef0a83139f1c"
+source = "git+https://github.com/linkerd/linkerd2-proxy#d6172c594c0a345c4db48ee2e411f5c7c790bef2"
 dependencies = [
  "bytes",
  "prost",
@@ -2111,7 +2112,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
- "semver",
+ "semver 0.9.0",
 ]
 
 [[package]]
@@ -2154,6 +2155,12 @@ checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
  "semver-parser",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bebd363326d05ec3e2f532ab7660680f3b02130d780c299bca73469d521bc0ed"
 
 [[package]]
 name = "semver-parser"
