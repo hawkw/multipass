@@ -19,7 +19,7 @@ tokio = { version = "1.25.0", features = ["net", "rt-multi-thread", "time", "syn
 tokio-stream = { version = "0.1.12", features = ["net"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-toml = "0.7.1"
+toml = "0.7.6"
 linkerd-app-core = { git = "https://github.com/linkerd/linkerd2-proxy" }
 linkerd-error-respond = { git = "https://github.com/linkerd/linkerd2-proxy" }
 linkerd-stack = { git = "https://github.com/linkerd/linkerd2-proxy" }
